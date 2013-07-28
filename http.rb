@@ -52,7 +52,6 @@ end
 
 put('/ask') {
   validate!(params)
-  p params
   put_question_type_and_question_and_ask!(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['addCents'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
   ""
 }
@@ -63,8 +62,6 @@ get('/ask') {
   answers.nil? ? halt(404) : JSON.dump(answers)
 }
 
-post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]) }
-
-post('/i') { consume_hits!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]) }
-
+post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
+post('/i') { consume_hits!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
 get('/') { redirect "http://www.leebutterman.com/ask-human/" }
