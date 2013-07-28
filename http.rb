@@ -3,21 +3,27 @@ require './turk-credentials'
 require 'sinatra'
 
 def valid_question_type?(q)
-  q.size == 1 && (q.has_key?('Radio') || q.has_key?('Text')) &&
+  q.size == 1 && (q.has_key?('Radio') || q.has_key?('Text') || q.has_key?('ConstrainedText')) &&
     if q.has_key?('Radio')
       r = q['Radio']
       (r.has_key?('questionText') && r.has_key?('chooseOne')) &&
         r['chooseOne'].respond_to?(:to_ary) &&
         r['chooseOne'].all? {|c| c.respond_to? :to_str } &&
         r['questionText'].respond_to?(:to_str)
-    else
+    elsif q.has_key?('Text')
       t = q['Text']
       (t.has_key?('questionText') && t.has_key?('defaultText')) &&
         t['questionText'].respond_to?(:to_str) &&
         t['defaultText'].respond_to?(:to_str)
+    else
+      ct = q['ConstrainedText']
+      (ct.has_key?('questionText') && ct.has_key?('defaultText') && ct.has_key?('regex')) &&
+        ct['questionText'].respond_to?(:to_str) &&
+        ct['defaultText'].respond_to?(:to_str) &&
+        ct['regex'].respond_to?(:to_str) &&
+        (Regexp.new(ct['regex']) rescue false)
     end
 end
-
 def validate!(ps)
   instructions = ps['instructions']
   raw_question = ps['question']

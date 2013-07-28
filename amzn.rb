@@ -185,6 +185,15 @@ def generate_radio_answer(answers)
   }
 end
 
+def generate_constrained_text_answer(default, regex)
+  Builder::XmlMarkup.new.FreeTextAnswer {|b|
+    b.Constraints {
+      b.AnswerFormatRegex(:regex => regex, :flags => "i")
+    }
+    b.DefaultText(default)
+  }
+end
+
 def generate_text_answer(default)
   Builder::XmlMarkup.new.FreeTextAnswer {|b|
     b.DefaultText(default)
@@ -198,9 +207,24 @@ def generate_question_form(instructions, id_questions)
       b.Question {
         b.QuestionIdentifier(uid)
         b.IsRequired("true")
-        b.QuestionContent { b << escaped_text(q.has_key?("Radio") ? q['Radio'].fetch("questionText") : q['Text'].fetch('questionText')) }
+        b.QuestionContent {
+          b << escaped_text(if q.has_key?("Radio")
+                              q['Radio'].fetch("questionText")
+                            elsif q.has_key?("ConstrainedText")
+                              q['ConstrainedText'].fetch("questionText")
+                            else
+                              q['Text'].fetch('questionText')
+                            end
+                            )
+        }
         b.AnswerSpecification {
-          b << (q.has_key?("Radio") ? generate_radio_answer(q['Radio'].fetch('chooseOne')) : generate_text_answer(q['Text'].fetch('defaultText')))
+          b << (if q.has_key?('Radio')
+                  generate_radio_answer(q['Radio'].fetch('chooseOne'))
+                elsif q.has_key?('ConstrainedText')
+                  generate_constrained_text_answer(q['ConstrainedText'].fetch('defaultText'), q['ConstrainedText'].fetch('regex'))
+                else
+                  generate_text_answer(q['Text'].fetch('defaultText'))
+                end)
         }
       }
     }
@@ -208,7 +232,14 @@ def generate_question_form(instructions, id_questions)
 end
 
 def question_text(q)
-  (q.has_key?('Radio') ? [q['Radio'].fetch('questionText'), q['Radio'].fetch('chooseOne').join(" ")] : [q['Text'].fetch('questionText'), q['Text'].fetch('defaultText')]).join(" ")
+  fields = if q.has_key?('Radio')
+             [q['Radio'].fetch('questionText'), q['Radio'].fetch('chooseOne').join(" ")]
+           elsif q.has_key?('Text')
+             [q['Text'].fetch('questionText'), q['Text'].fetch('defaultText')]
+           else
+             [q['ConstrainedText'].fetch('questionText'), q['ConstrainedText'].fetch('defaultText'), q['ConstrainedText'].fetch('regex')]
+           end
+  fields.join(" ")
 end
 
 def make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
