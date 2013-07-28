@@ -6,13 +6,13 @@ DB = SQLite3::Database.new("asks.db")
 DB.results_as_hash = true
 DB.type_translation = true
 
-InsertQuestionType = "insert or ignore into question_types (id, instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions) values (:id, :instructions, :distinctUsers, :addMinutes, :addCents, :knownAnswerQuestions)"
+InsertQuestionType = "insert or ignore into question_types (id, instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions) values (:id, :instructions, :distinctUsers, :addMinutes, :cost, :knownAnswerQuestions)"
 InsertQuestion = "insert or ignore into questions (id, question_type_id, question) values (:id, :question_type_id, :question)"
 InsertAsk = "insert or ignore into asks (id, question_id, uniqueAskId) values (:id, :question_id, :uniqueAskId)"
 SelectAnswers = "select (case when exists (select * from assignments join shipped_asks using (hit_id) where ask_id = :aid) then '[' || coalesce(group_concat(answer),'') || ']' else null end) as answer_list from answers where ask_id = :aid"
 
 
-SelectBatchOfOldestUnshippedAsk = "select is_valid, instructions, questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions from oldest_batch"
+SelectBatchOfOldestUnshippedAsk = "select is_valid, instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions from oldest_batch"
 
 InsertShippedAsk = "insert into shipped_asks (hit_id, ask_id) values (:hit_id, (select id from asks a left join shipped_asks sa on a.id = sa.ask_id where sa.ask_id is null and question_id = :question_id order by a.created_at limit 1))"
 
@@ -25,36 +25,36 @@ def make_id_ask(qid, uniqueAskId)
   (qid + uniqueAskId.sha256).sha256
 end
 
-def put_question_type!(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions, db)
+def put_question_type!(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, db)
   db.execute(InsertQuestionType,
-             'id' => make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions),
-             'instructions' => instructions, 'distinctUsers' => distinctUsers, 'addMinutes' => addMinutes, 'addCents' => addCents,
+             'id' => make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions),
+             'instructions' => instructions, 'distinctUsers' => distinctUsers, 'addMinutes' => addMinutes, 'cost' => cost,
              'knownAnswerQuestions' => knownAnswerQuestions.nil? ? nil : JSON.dump(knownAnswerQuestions) )
 end
 
-def put_question!(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, db)
-  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def put_question!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, db)
+  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   qid = make_id_questions(qtid, [question]).keys.first
   db.execute(InsertQuestion, 'id' => qid, 'question_type_id' => qtid, "question" => JSON.dump(question))
 end
 
-def put_ask!(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, uniqueAskId, db)
-  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def put_ask!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, uniqueAskId, db)
+  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   qid = make_id_questions(qtid, [question]).keys.first
   aid = make_id_ask(qid, uniqueAskId)
   db.execute(InsertAsk, 'id' => aid, 'question_id' => qid, 'uniqueAskId' => uniqueAskId)
 end
 
-def put_question_type_and_question_and_ask!(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, uniqueAskId, db)
+def put_question_type_and_question_and_ask!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, uniqueAskId, db)
   db.transaction { |txn|
-    put_question_type!(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions, txn)
-    put_question!(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, txn)
-    put_ask!(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, uniqueAskId, txn)
+    put_question_type!(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, txn)
+    put_question!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, txn)
+    put_ask!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, uniqueAskId, txn)
   }
 end
 
-def get_answers(instructions, question, distinctUsers, addMinutes, addCents, knownAnswerQuestions, uniqueAskId, db)
-  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def get_answers(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, uniqueAskId, db)
+  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   qid = make_id_questions(qtid, [question]).keys.first
   aid = make_id_ask(qid, uniqueAskId)
   maybe_answer_list = db.execute(SelectAnswers, "aid" => aid)[0]['answer_list']
@@ -74,7 +74,7 @@ end
 def ship_oldest_batch!(db, endpoint, access_key, secret_access_key)
   b = get_oldest_batch(db)
   return if b.nil?
-  hits_idquestions = ship_all!(b.fetch('instructions'), b.fetch('questions'), b.fetch('distinctUsers'), b.fetch('addMinutes'), b.fetch('addCents'), b.fetch('knownAnswerQuestions'), endpoint, access_key, secret_access_key)
+  hits_idquestions = ship_all!(b.fetch('instructions'), b.fetch('questions'), b.fetch('distinctUsers'), b.fetch('addMinutes'), b.fetch('cost'), b.fetch('knownAnswerQuestions'), endpoint, access_key, secret_access_key)
   hits_idquestions.each {|hit_id, idquestions|
     idquestions.keys.each {|question_id|
       db.execute(InsertShippedAsk, "hit_id" => hit_id, "question_id" => question_id)

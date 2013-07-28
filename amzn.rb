@@ -112,21 +112,21 @@ def maybe_hit_assignments!(hit_id, distinctUsers, knownAnswerQuestions, endpoint
   end
 end
 
-def batch_into_hits(instructions, questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   raise ZeroDivisionError if questions.length.zero?
-  id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions), questions)
+  id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions), questions)
   shuffled_questions = questions #id_questions.sort_by {|i,q| i}.map {|i,q| q }
   max_possible_question_form_length = 128 * 1024
   max_desired_questions = 40
   max_desired_duration = 2 * 3600
-  h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+  h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   batch_too_full = h.fetch("Question").length > max_possible_question_form_length || h.fetch("AssignmentDurationInSeconds") > max_desired_duration || questions.length > max_desired_questions
   evens_odds = shuffled_questions.each_with_index.partition {|_,i| i.even? }.map {|part| part.map {|e,_| e } }
-  batch_too_full ? evens_odds.map {|question_batch| batch_into_hits(instructions, question_batch, distinctUsers, addMinutes, addCents, knownAnswerQuestions)}.inject(&:merge) : {h => id_questions}
+  batch_too_full ? evens_odds.map {|question_batch| batch_into_hits(instructions, question_batch, distinctUsers, addMinutes, cost, knownAnswerQuestions)}.inject(&:merge) : {h => id_questions}
 end
 
-def ship_all!(instructions, questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions, endpoint, access_key, secret_access_key)
-  hits_idquestions = batch_into_hits(instructions, questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def ship_all!(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, endpoint, access_key, secret_access_key)
+  hits_idquestions = batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   hits_idquestions.map {|hit,id_questions| {ship_hit!(hit, endpoint, access_key, secret_access_key) => id_questions} }.inject(&:merge)
 end
 
@@ -242,8 +242,8 @@ def question_text(q)
   fields.join(" ")
 end
 
-def make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
-  slug = [instructions, distinctUsers.to_s, addMinutes.to_s, addCents.to_s].map(&:sha256).join
+def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+  slug = [instructions, distinctUsers.to_s, addMinutes.to_s, (cost.nil? ? 0 : cost).to_s].map(&:sha256).join
   knownAnswerSlug = knownAnswerQuestions.nil? ? "" : [knownAnswerQuestions.fetch("percentCorrect").to_s.sha256,
                                                       knownAnswerQuestions.fetch("answeredQuestions").map {|aq|
                                                         [aq.fetch("answer"), question_text(aq.fetch("question"))].map(&:sha256).join
@@ -266,13 +266,13 @@ def gs_make_id_questions(knownAnswerQuestions)
   h
 end
 
-def make_hit(instructions, questions, distinctUsers, addMinutes, addCents, knownAnswerQuestions)
+def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   gs = knownAnswerQuestions.nil? ? {} : gs_make_id_questions(knownAnswerQuestions)
-  qs = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, addCents, knownAnswerQuestions), questions)
+  qs = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions), questions)
   question_batch = gs.merge(qs).sort_by {|i, q| i.sha256 }
   question_form = generate_question_form(instructions, question_batch)
   all_questions = gs.values + qs.values
-  reward = hit_reward(all_questions, addCents)
+  reward = cost.nil? ? hit_reward(all_questions) : (cost/100.0).round(2)
   duration = time_allotment(all_questions, instructions, addMinutes)
   title = instructions.lstrip[/[^\n]+/][0,127]
   { "Operation" => "CreateHIT",
@@ -301,12 +301,11 @@ def time_allotment(questions, instructions, addMinutes)
   [seconds, min_seconds].max + (60 * addMinutes)
 end
 
-def hit_reward(questions, addCents)
+def hit_reward(questions)
   min_reward = 0.01
   reading_seconds = seconds_to_read(questions)
   seconds_per_hour = 3600.0
   mturk_hourly_living_wage = 4.00
-  base_reward = (reading_seconds / seconds_per_hour) * mturk_hourly_living_wage
-  full_reward = (base_reward + addCents / 100.0).round(2)
-  [full_reward, min_reward].max
+  reward = ((reading_seconds / seconds_per_hour) * mturk_hourly_living_wage).round(2)
+  [reward, min_reward].max
 end
