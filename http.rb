@@ -30,7 +30,7 @@ def validate!(ps)
   raw_knownAnswerQuestions = ps['knownAnswerQuestions']
   distinctUsers = ps['distinctUsers'] = (ps['distinctUsers'] || '1').to_i
   ps['addMinutes'] = addMinutes = (ps['addMinutes'] || '0').to_i
-  ps['cost'] = cost = ps.has_key?("cost") ? ps['cost'].to_i || nil
+  ps['cost'] = cost = ps.has_key?("cost") ? ps['cost'].to_i : nil
   ps['uniqueAskId'] = uniqueAskId = ps['uniqueAskId'] || ''
 
   !instructions.nil? || halt(400, "need instructions")
