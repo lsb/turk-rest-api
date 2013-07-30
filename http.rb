@@ -45,7 +45,7 @@ def validate!(ps)
     (0..100).include?(knownAnswerQuestions['percentCorrect']) || halt(400, "bad known answer questions percent correct")
     aQ = knownAnswerQuestions['answeredQuestions']
     aQ.respond_to?(:to_ary) || halt(400, "bad known answer questions answered questions")
-    aQ.all? {|aq| aq.has_key?('answer') && aq['answer'].respond_to?(:to_str) } || halt(400, "bad known answer questions answers")
+    aQ.all? {|aq| aq.has_key?('match') && (aq['match'].has_key?('Exact') || aq['match'].has_key?('Inexact')) && (aq['match']['Exact'] || aq['match']['Inexact']).respond_to?(:to_str) } || halt(400, "bad known answer questions answers")
     aQ.all? {|aq| aq.has_key?('question') && valid_question_type?(aq['question']) } || halt(400, "bad known answer questions question")
   end
 end

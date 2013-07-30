@@ -132,7 +132,13 @@ end
 
 def gs_percent_correct(answer_hash)
   golds = answer_hash.find_all {|qid, a| qid.start_with?("g") }
-  good_golds = golds.find_all {|qid, a| qid.end_with?(a.sha256) }
+  good_golds = golds.find_all {|qid, a|
+    gid, m = *qid.split('~')
+    match = JSON.parse(Base64.urlsafe_decode64(m))
+    exact = match.has_key?('Exact')
+    string = match.fetch(exact ? 'Exact' : 'Inexact')
+    exact ? a == string : !!a.match(Regexp.new(string))
+  }
   (good_golds.size * 100.0 / golds.size).round(2)
 end
 
@@ -177,7 +183,7 @@ def generate_radio_answer(answers)
     b.Selections {
       answers.each {|a|
         b.Selection {
-          b.SelectionIdentifier(a.sha256)
+          b.SelectionIdentifier(a)
           b << escaped_text(a)
         }
       }
@@ -246,7 +252,9 @@ def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAn
   slug = [instructions, distinctUsers.to_s, addMinutes.to_s, (cost.nil? ? 0 : cost).to_s].map(&:sha256).join
   knownAnswerSlug = knownAnswerQuestions.nil? ? "" : [knownAnswerQuestions.fetch("percentCorrect").to_s.sha256,
                                                       knownAnswerQuestions.fetch("answeredQuestions").map {|aq|
-                                                        [aq.fetch("answer"), question_text(aq.fetch("question"))].map(&:sha256).join
+                                                        m = aq.fetch("match")
+                                                        k = m.has_key?("Exact") ? "Exact" : "Inexact"
+                                                        [k, m.fetch(k), question_text(aq.fetch("question"))].map(&:sha256).join
                                                       }.join].join
   (slug + knownAnswerSlug).sha256
 end
@@ -258,10 +266,9 @@ end
 def gs_make_id_questions(knownAnswerQuestions)
   h = {}
   knownAnswerQuestions.fetch("answeredQuestions").each {|aq|
-    a = aq.fetch("answer")
+    m = aq.fetch("match")
     q = aq.fetch("question")
-    slug = [a, question_text(q)].join(" ")
-    h['g' + slug.sha256 + a.sha256] = q
+    h['g' + question_text(q).sha256 + '~' + Base64.urlsafe_encode64(JSON.dump(m))] = q
   }
   h
 end

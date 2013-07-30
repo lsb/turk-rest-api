@@ -105,10 +105,8 @@ def consume_hits!(db, endpoint, access_key, secret_access_key)
           db.execute(InsertAssignment, "id" => a.fetch("id"), "hit_id" => hit_id, "worker_id" => a.fetch("worker_id"), "assignment" => JSON.dump(a.fetch("assignment")))
           if a.fetch("valid?")
             a.fetch("assignment").each {|question_id, answer|
-              question = id_questions.fetch(question_id)
-              stored_answer = question.has_key?("Radio") ? question['Radio'].fetch('chooseOne').find {|raw_answer| raw_answer.sha256 == answer } : answer
-              STDERR.puts "assignment_id => #{a['id']} question_id => #{question_id} answer => #{stored_answer.inspect} raw_answer => #{answer}"
-              db.execute(InsertAnswer, "assignment_id" => a.fetch("id"), "question_id" => question_id, "answer" => stored_answer.to_json)
+              STDERR.puts "assignment_id => #{a['id']} question_id => #{question_id} answer => #{answer.inspect}"
+              db.execute(InsertAnswer, "assignment_id" => a.fetch("id"), "question_id" => question_id, "answer" => answer.to_json)
             }
           end
         }
