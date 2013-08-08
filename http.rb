@@ -59,7 +59,7 @@ put('/ask') {
 get('/ask') {
   validate!(params)
   answers = get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
-  answers.nil? ? halt(404) : JSON.dump(answers)
+  answers.nil? ? halt(404) : JSON.dump(answers.map {|a| {Pass: {value: a}} })
 }
 
 post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
