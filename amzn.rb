@@ -118,7 +118,7 @@ def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, kn
   shuffled_questions = questions #id_questions.sort_by {|i,q| i}.map {|i,q| q }
   max_possible_question_form_length = 128 * 1024
   max_desired_questions = 15
-  max_desired_duration = 2 * 3600
+  max_desired_duration = 3600
   h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   batch_too_full = h.fetch("Question").length > max_possible_question_form_length || h.fetch("AssignmentDurationInSeconds") > max_desired_duration || questions.length > max_desired_questions
   evens_odds = shuffled_questions.each_with_index.partition {|_,i| i.even? }.map {|part| part.map {|e,_| e } }
@@ -309,7 +309,9 @@ end
 def time_allotment(questions, instructions, addMinutes)
   min_seconds = 60 # as per amzn
   seconds = seconds_to_read(questions + [{'Text' => {'questionText' => instructions, 'defaultText' => ''}}]).to_i * 15
-  [seconds, min_seconds].max + (60 * addMinutes)
+  total_seconds = seconds + 60 * addMinutes
+  quantized_seconds = total_seconds./(1800.0).ceil.*(1800)
+  [quantized_seconds, min_seconds].max
 end
 
 def hit_reward(questions)
@@ -317,6 +319,7 @@ def hit_reward(questions)
   reading_seconds = seconds_to_read(questions)
   seconds_per_hour = 3600.0
   mturk_hourly_living_wage = 4.00
-  reward = ((reading_seconds / seconds_per_hour) * mturk_hourly_living_wage).round(2)
-  [reward, min_reward].max
+  reward = (reading_seconds / seconds_per_hour) * mturk_hourly_living_wage
+  quantized_reward = (2 ** (Math.log2(reward*100).round)).round / 100.0
+  [quantized_reward, min_reward].max
 end
