@@ -117,7 +117,7 @@ def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, kn
   id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions), questions)
   shuffled_questions = questions #id_questions.sort_by {|i,q| i}.map {|i,q| q }
   max_possible_question_form_length = 128 * 1024
-  max_desired_questions = 40
+  max_desired_questions = 15
   max_desired_duration = 2 * 3600
   h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
   batch_too_full = h.fetch("Question").length > max_possible_question_form_length || h.fetch("AssignmentDurationInSeconds") > max_desired_duration || questions.length > max_desired_questions
