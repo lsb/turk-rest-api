@@ -295,8 +295,8 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "AssignmentDurationInSeconds" => duration,
     "LifetimeInSeconds" => (3600 * 6),
     "MaxAssignments" => distinctUsers,
-    "AutoApprovalDelayInSeconds" => 0,
-    "UniqueRequestToken" => (gs.keys+qs.keys).map(&:sha256).join.sha256 }
+    "AutoApprovalDelayInSeconds" => 0}#,  TODO FIX NOT USING UNIQUEASKID
+    #"UniqueRequestToken" => (gs.keys+qs.keys).map(&:sha256).join.sha256 }
 end
 
 def seconds_to_read(questions)
