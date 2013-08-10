@@ -63,7 +63,7 @@ def get_answers(instructions, question, distinctUsers, addMinutes, cost, knownAn
   return nil if maybe_ask.nil?
   answers = db.execute(SelectAnswers, "aid" => aid)
   no_more = answers.size > 0 && !answers[0].fetch("hit_id").nil?
-  [no_more, answers.map {|a| a["is_valid"].zero? ? {"Fail" => {"value" => a["answer"]}} : {"Pass" => {"value" => a["answer"]}} }]
+  [no_more, answers.map {|a| a["is_valid"].zero? ? {"Fail" => {"value" => a["answer"], "worker" => a["worker_id"]}} : {"Pass" => {"value" => a["answer"], "worker" => a["worker_id"]}} }]
 end
 
 
