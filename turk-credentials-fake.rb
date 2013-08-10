@@ -1,6 +1,13 @@
 Turk = {
-  :access => "00000000000000000000",
-  :secret_access => "0000000000000000000000000000000000000000",
+  :access => "argle",
+  :secret_access => "bargle",
   :endpoint => "https://mechanicalturk.sandbox.amazonaws.com",
-  #:endpoint => "https://mechanicalturk.amazonaws.com",
+  :live_endpoint => "https://mechanicalturk.amazonaws.com",
+}
+
+TurkQueue = {
+  :access => "argle",
+  :secret_access => "bargle",
+  :endpoint => "https://sqs.example.com/12345/sandbox",
+  :live_endpoint => "https://sqs.example.com/12345/live",
 }

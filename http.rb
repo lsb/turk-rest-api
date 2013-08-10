@@ -58,10 +58,11 @@ put('/ask') {
 
 get('/ask') {
   validate!(params)
-  answers = get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
-  answers.nil? ? halt(404) : JSON.dump(answers.map {|a| {Pass: {value: a}} })
+  no_more, answers = *get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
+  halt 404 if answers.nil?
+  halt(no_more ? 200 : 202, JSON.dump(answers))
 }
 
-post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
-post('/i') { consume_hits!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
+post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access], TurkQueue[:live_endpoint]); "" }
+post('/i') { consume_assignments!(DB, TurkQueue[:live_endpoint], TurkQueue[:access], TurkQueue[:secret_access], Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
 get('/') { redirect "http://www.leebutterman.com/ask-human/" }

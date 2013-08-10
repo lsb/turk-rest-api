@@ -5,6 +5,7 @@ require 'base64'
 require 'rexml/document'
 require 'builder'
 require 'htmlentities'
+require 'aws-sdk'
 
 class String
   def sha256
@@ -52,11 +53,29 @@ def bonus!(worker_id, assignment_id, amt, reason, endpoint, access_key, secret_a
   true
 end
 
-def ship_hit!(h, endpoint, access_key, secret_access_key)
+def subscribe_hit_type_assignments_to_queue!(hit_type_id, queue, endpoint, access_key, secret_access_key)
+  s = turk!({"Operation" => "SetHITTypeNotification", "HITTypeId" => hit_type_id, "Notification.1.Transport" => "SQS", "Notification.1.Version" => "2006-05-05", "Notification.1.Destination" => queue, "Notification.1.EventType" => "AssignmentSubmitted"}, endpoint, access_key, secret_access_key)
+  x = valid_xml!(s)
+  true
+end
+
+def receive_assignment_notifications!(endpoint, access_key, secret_access_key)
+  AWS.config({:access_key_id => access_key, :secret_access_key => secret_access_key})
+  AWS::SQS::Queue.new(endpoint).receive_message(:limit => 10)
+end
+
+def discard_assignment_notifications!(notifications, endpoint, access_key, secret_access_key)
+  AWS.config({:access_key_id => access_key, :secret_access_key => secret_access_key})
+  AWS::SQS::Queue.new(endpoint).batch_delete(notifications)
+end
+
+def ship_hit!(h, endpoint, access_key, secret_access_key, maybe_queue = nil)
   sh = turk!(h, endpoint, access_key, secret_access_key)
   x = valid_xml!(sh)
-  hit_id = x.elements['/CreateHITResponse/HIT/HITId/text()']
-  hit_id.to_s
+  hit_type_id = x.elements['/CreateHITResponse/HIT/HITTypeId/text()'].to_s
+  subscribe_hit_type_assignments_to_queue!(hit_type_id, maybe_queue, endpoint, access_key, secret_access_key) unless maybe_queue.nil?
+  hit_id = x.elements['/CreateHITResponse/HIT/HITId/text()'].to_s
+  hit_id
 end
 
 def extend_hit!(hit_id, increment, endpoint, access_key, secret_access_key)
@@ -97,6 +116,28 @@ def hit_assignments!(hit_id, endpoint, access_key, secret_access_key)
   }
 end
 
+def assignment!(assignment_id, knownAnswerQuestions, endpoint, access_key, secret_access_key)
+  t = turk!({"Operation" => "GetAssignment", "AssignmentId" => assignment_id}, endpoint, access_key, secret_access_key)
+  x = valid_xml!(t)
+  a = x.root.elements["/GetAssignmentResponse/GetAssignmentResult/Assignment"]
+  hit_id = a.elements["HITId"].text
+  worker_id = a.elements["WorkerId"].text
+  answer_xml = REXML::Document.new(a.elements["Answer"].text).root
+  answer_hash = {}
+  answer_xml.get_elements("Answer").each {|answer|
+    qi = answer.elements["QuestionIdentifier"].text
+    maybe_freetext = answer.elements["FreeText"]
+    maybe_selection = answer.elements["SelectionIdentifier"]
+    answer_text = (maybe_freetext || maybe_selection).text
+    p "ehlol"
+    p({qi => answer_text })
+    p "hello"
+    answer_hash[qi] = answer_text
+  }
+  is_valid = knownAnswerQuestions.nil? || gs_percent_correct(answer_hash) >= knownAnswerQuestions.fetch("percentCorrect")
+  {"id" => assignment_id, "hit_id" => hit_id, "worker_id" => worker_id, "assignment" => answer_hash, "valid?" => is_valid}
+end
+
 def maybe_hit_assignments!(hit_id, distinctUsers, knownAnswerQuestions, endpoint, access_key, secret_access_key)
   some_assignments = hit_assignments!(hit_id, endpoint, access_key, secret_access_key)
   answer_hashes = some_assignments.map {|a| a.fetch("assignment") }
@@ -125,9 +166,9 @@ def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, kn
   batch_too_full ? evens_odds.map {|question_batch| batch_into_hits(instructions, question_batch, distinctUsers, addMinutes, cost, knownAnswerQuestions)}.inject(&:merge) : {h => id_questions}
 end
 
-def ship_all!(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, endpoint, access_key, secret_access_key)
+def ship_all!(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, endpoint, access_key, secret_access_key, maybe_queue = nil)
   hits_idquestions = batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
-  hits_idquestions.map {|hit,id_questions| {ship_hit!(hit, endpoint, access_key, secret_access_key) => id_questions} }.inject(&:merge)
+  hits_idquestions.map {|hit,id_questions| {ship_hit!(hit, endpoint, access_key, secret_access_key, maybe_queue) => id_questions} }.inject(&:merge)
 end
 
 def gs_percent_correct(answer_hash)
