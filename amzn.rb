@@ -320,7 +320,7 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
   question_batch = gs.merge(qs).sort_by {|i, q| i.sha256 }
   question_form = generate_question_form(instructions, question_batch)
   all_questions = gs.values + qs.values
-  reward = cost.nil? ? hit_reward(all_questions) : (cost/100.0).round(2)
+  reward = cost.nil? ? hit_reward(all_questions) : (all_questions.size * cost)./(5.0).ceil./(20.0)
   duration = time_allotment(all_questions, instructions, addMinutes)
   title = instructions.lstrip[/[^\n]+/][0,127]
   { "Operation" => "CreateHIT",
