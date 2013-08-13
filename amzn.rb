@@ -335,7 +335,7 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "QualificationRequirement.1.RequiredToPreview" => "false",
     "QualificationRequirement.2.QualificationTypeId" => "00000000000000000040",
     "QualificationRequirement.2.Comparator" => "GreaterThan",
-    "QualificationRequirement.2.IntegerValue" => "200",
+    "QualificationRequirement.2.IntegerValue" => "300",
     "AssignmentDurationInSeconds" => duration,
     "LifetimeInSeconds" => (3600 * 6),
     "MaxAssignments" => distinctUsers,
