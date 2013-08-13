@@ -331,7 +331,7 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "Reward.1.Amount" => reward,
     "QualificationRequirement.1.QualificationTypeId" => "000000000000000000L0",
     "QualificationRequirement.1.Comparator" => "GreaterThan",
-    "QualificationRequirement.1.IntegerValue" => "95",
+    "QualificationRequirement.1.IntegerValue" => "98",
     "QualificationRequirement.1.RequiredToPreview" => "false",
     "QualificationRequirement.2.QualificationTypeId" => "00000000000000000040",
     "QualificationRequirement.2.Comparator" => "GreaterThan",
