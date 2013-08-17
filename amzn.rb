@@ -337,7 +337,7 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "QualificationRequirement.2.Comparator" => "GreaterThan",
     "QualificationRequirement.2.IntegerValue" => "300",
     "AssignmentDurationInSeconds" => duration,
-    "LifetimeInSeconds" => (3600 * 6),
+    "LifetimeInSeconds" => (3600 * 24),
     "MaxAssignments" => distinctUsers,
     "AutoApprovalDelayInSeconds" => 0}#,  TODO FIX NOT USING UNIQUEASKID
     #"UniqueRequestToken" => (gs.keys+qs.keys).map(&:sha256).join.sha256 }
