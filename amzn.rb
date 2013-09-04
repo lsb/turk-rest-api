@@ -149,7 +149,7 @@ def maybe_hit_assignments!(hit_id, distinctUsers, knownAnswerQuestions, endpoint
     nil
   else
     Thread.new { sleep 120 ; dispose_hit!(hit_id, endpoint, access_key, secret_access_key) }
-    some_assignments.map {|a| a.merge({"valid?" => percentCorrect.nil? || gs_percent_correct(a.fetch('assignment')) >= percentCorrect}) }
+    some_assignments.map {|a| a.merge({ "valid?" => percentCorrect.nil? || gs_percent_correct(a.fetch('assignment')) >= percentCorrect}) }
   end
 end
 
