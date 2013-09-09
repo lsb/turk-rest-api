@@ -31,6 +31,7 @@ def validate!(ps)
   distinctUsers = ps['distinctUsers'] = (ps['distinctUsers'] || '1').to_i
   ps['addMinutes'] = addMinutes = (ps['addMinutes'] || '0').to_i
   ps['cost'] = cost = ps.has_key?("cost") ? ps['cost'].to_i : nil
+  ps['overrideParameters'] = overrideParameters = ps.fetch("overrideParameters", "{}")
   ps['uniqueAskId'] = uniqueAskId = ps['uniqueAskId'] || ''
 
   !instructions.nil? || halt(400, "need instructions")
@@ -48,17 +49,18 @@ def validate!(ps)
     aQ.all? {|aq| aq.has_key?('match') && (aq['match'].has_key?('Exact') || aq['match'].has_key?('Inexact')) && (aq['match']['Exact'] || aq['match']['Inexact']).respond_to?(:to_str) } || halt(400, "bad known answer questions answers")
     aQ.all? {|aq| aq.has_key?('question') && valid_question_type?(aq['question']) } || halt(400, "bad known answer questions question")
   end
+  JSON.parse(overrideParameters).map {|k,v| k.to_str + v.to_str } rescue halt(400, "unparseable override parameters")
 end
 
 put('/ask') {
   validate!(params)
-  put_question_type_and_question_and_ask!(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
+  put_question_type_and_question_and_ask!(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], params['overrideParameters'], DB)
   ""
 }
 
 get('/ask') {
   validate!(params)
-  no_more, answers = *get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], DB)
+  no_more, answers = *get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], params['overrideParameters'], DB)
   halt 404 if answers.nil?
   halt(no_more ? 200 : 202, JSON.dump(answers))
 }

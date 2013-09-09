@@ -90,32 +90,6 @@ def dispose_hit!(hit_id, endpoint, access_key, secret_access_key)
   true
 end
 
-def reviewable_hit_ids!(endpoint, access_key, secret_access_key)
-  rhids = turk!({"Operation" => "GetReviewableHITs"}, endpoint, access_key, secret_access_key)
-  x = valid_xml!(rhids)
-  x.root.get_elements("//HITId").map(&:text)
-end
-
-def hit_assignments!(hit_id, endpoint, access_key, secret_access_key)
-  # get a max of 100 different workers at a time
-  ha = turk!({"Operation" => "GetAssignmentsForHIT", "HITId" => hit_id, "PageSize" => 100}, endpoint, access_key, secret_access_key)
-  x = valid_xml!(ha)
-  x.root.get_elements("//Assignment").map {|a|
-    assignment_id = a.get_elements("AssignmentId").first.text
-    worker_id = a.get_elements("WorkerId").first.text
-    answer_xml = REXML::Document.new(a.get_elements("Answer").first.text).root
-    answer_hash = {}
-    answer_xml.get_elements("Answer").each {|a|
-      qi = a.get_elements("QuestionIdentifier").first.text
-      maybe_freetext = a.get_elements("FreeText").first
-      maybe_selection = a.get_elements("SelectionIdentifier").first
-      answer = (maybe_freetext || maybe_selection).text
-      answer_hash[qi] = answer
-    }
-    {"id" => assignment_id, "worker_id" => worker_id, "assignment" => answer_hash}
-  }
-end
-
 def assignment!(assignment_id, knownAnswerQuestions, endpoint, access_key, secret_access_key)
   t = turk!({"Operation" => "GetAssignment", "AssignmentId" => assignment_id}, endpoint, access_key, secret_access_key)
   x = valid_xml!(t)
@@ -129,45 +103,28 @@ def assignment!(assignment_id, knownAnswerQuestions, endpoint, access_key, secre
     maybe_freetext = answer.elements["FreeText"]
     maybe_selection = answer.elements["SelectionIdentifier"]
     answer_text = (maybe_freetext || maybe_selection).text
-    p "ehlol"
     p({qi => answer_text })
-    p "hello"
     answer_hash[qi] = answer_text
   }
   is_valid = knownAnswerQuestions.nil? || gs_percent_correct(answer_hash) >= knownAnswerQuestions.fetch("percentCorrect")
   {"id" => assignment_id, "hit_id" => hit_id, "worker_id" => worker_id, "assignment" => answer_hash, "valid?" => is_valid}
 end
 
-def maybe_hit_assignments!(hit_id, distinctUsers, knownAnswerQuestions, endpoint, access_key, secret_access_key)
-  some_assignments = hit_assignments!(hit_id, endpoint, access_key, secret_access_key)
-  answer_hashes = some_assignments.map {|a| a.fetch("assignment") }
-  percentCorrect = knownAnswerQuestions.nil? ? nil : knownAnswerQuestions.fetch("percentCorrect")
-  more_count = assignments_needed(answer_hashes, distinctUsers, percentCorrect)
-  warn "fuzzy math for #{hit_id}" if more_count < 0
-  if more_count > 0
-    extend_hit!(hit_id, more_count, endpoint, access_key, secret_access_key)
-    nil
-  else
-    Thread.new { sleep 120 ; dispose_hit!(hit_id, endpoint, access_key, secret_access_key) }
-    some_assignments.map {|a| a.merge({ "valid?" => percentCorrect.nil? || gs_percent_correct(a.fetch('assignment')) >= percentCorrect}) }
-  end
-end
-
-def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   raise ZeroDivisionError if questions.length.zero?
-  id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions), questions)
+  id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters), questions)
   shuffled_questions = questions #id_questions.sort_by {|i,q| i}.map {|i,q| q }
   max_possible_question_form_length = 128 * 1024
   max_desired_questions = 15
   max_desired_duration = 3600
-  h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+  h = make_hit(instructions, shuffled_questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   batch_too_full = h.fetch("Question").length > max_possible_question_form_length || h.fetch("AssignmentDurationInSeconds") > max_desired_duration || questions.length > max_desired_questions
   evens_odds = shuffled_questions.each_with_index.partition {|_,i| i.even? }.map {|part| part.map {|e,_| e } }
-  batch_too_full ? evens_odds.map {|question_batch| batch_into_hits(instructions, question_batch, distinctUsers, addMinutes, cost, knownAnswerQuestions)}.inject(&:merge) : {h => id_questions}
+  batch_too_full ? evens_odds.map {|question_batch| batch_into_hits(instructions, question_batch, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)}.inject(&:merge) : {h => id_questions}
 end
 
-def ship_all!(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, endpoint, access_key, secret_access_key, maybe_queue = nil)
-  hits_idquestions = batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+def ship_all!(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters, endpoint, access_key, secret_access_key, maybe_queue = nil)
+  hits_idquestions = batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   hits_idquestions.map {|hit,id_questions| {ship_hit!(hit, endpoint, access_key, secret_access_key, maybe_queue) => id_questions} }.inject(&:merge)
 end
 
@@ -289,7 +246,7 @@ def question_text(q)
   fields.join(" ")
 end
 
-def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   slug = [instructions, distinctUsers.to_s, addMinutes.to_s, (cost.nil? ? 0 : cost).to_s].map(&:sha256).join
   knownAnswerSlug = knownAnswerQuestions.nil? ? "" : [knownAnswerQuestions.fetch("percentCorrect").to_s.sha256,
                                                       knownAnswerQuestions.fetch("answeredQuestions").map {|aq|
@@ -297,7 +254,8 @@ def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAn
                                                         k = m.has_key?("Exact") ? "Exact" : "Inexact"
                                                         [k, m.fetch(k), question_text(aq.fetch("question"))].map(&:sha256).join
                                                       }.join].join
-  (slug + knownAnswerSlug).sha256
+  op = JSON.parse(overrideParameters).map {|k,v| k.sha256 + v.sha256 }.join
+  (slug + knownAnswerSlug + op).sha256
 end
 
 def make_id_questions(qtid, questions)
@@ -314,9 +272,9 @@ def gs_make_id_questions(knownAnswerQuestions)
   h
 end
 
-def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions)
+def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   gs = knownAnswerQuestions.nil? ? {} : gs_make_id_questions(knownAnswerQuestions)
-  qs = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions), questions)
+  qs = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters), questions)
   question_batch = gs.merge(qs).sort_by {|i, q| i.sha256 }
   question_form = generate_question_form(instructions, question_batch)
   all_questions = gs.values + qs.values
@@ -339,7 +297,8 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "AssignmentDurationInSeconds" => duration,
     "LifetimeInSeconds" => (3600 * 24),
     "MaxAssignments" => distinctUsers,
-    "AutoApprovalDelayInSeconds" => 0}#,  TODO FIX NOT USING UNIQUEASKID
+    "AutoApprovalDelayInSeconds" => 0
+  }.merge(JSON.parse(overrideParameters)) #,  TODO FIX NOT USING UNIQUEASKID
     #"UniqueRequestToken" => (gs.keys+qs.keys).map(&:sha256).join.sha256 }
 end
 
