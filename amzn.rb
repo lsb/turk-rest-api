@@ -113,7 +113,7 @@ end
 def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   raise ZeroDivisionError if questions.length.zero?
   id_questions = make_id_questions(make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters), questions)
-  shuffled_questions = questions #id_questions.sort_by {|i,q| i}.map {|i,q| q }
+  shuffled_questions = questions
   max_possible_question_form_length = 128 * 1024
   max_desired_questions = 15
   max_desired_duration = 3600
