@@ -1,4 +1,4 @@
-require './sql'
+require_relative './sql'
 require './turk-credentials'
 require 'sinatra'
 

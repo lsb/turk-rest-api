@@ -1,4 +1,4 @@
-require './amzn'
+require_relative './amzn'
 require 'sqlite3'
 require 'json'
 
