@@ -117,8 +117,9 @@ def assignment!(assignment_id, knownAnswerQuestions, endpoint, access_key, secre
     p({qi => answer_text })
     answer_hash[qi] = answer_text
   }
-  is_valid = knownAnswerQuestions.nil? || gs_percent_correct(answer_hash) >= knownAnswerQuestions.fetch("percentCorrect")
-  {"id" => assignment_id, "hit_id" => hit_id, "worker_id" => worker_id, "assignment" => answer_hash, "valid?" => is_valid}
+  current_golds_percent_correct = gs_percent_correct(answer_hash)
+  is_valid = knownAnswerQuestions.nil? || current_golds_percent_correct >= knownAnswerQuestions.fetch("percentCorrect")
+  {"id" => assignment_id, "hit_id" => hit_id, "worker_id" => worker_id, "assignment" => answer_hash, "valid?" => is_valid, "gold_standards_percent_correct" => current_golds_percent_correct}
 end
 
 def batch_into_hits(instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
