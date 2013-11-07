@@ -41,6 +41,17 @@ def account_balance!(endpoint, access_key, secret_access_key)
   x.elements['/GetAccountBalanceResponse/GetAccountBalanceResult/AvailableBalance/Amount/text()'].to_s.to_f
 end
 
+def approve!(assignment_id, feedback, endpoint, access_key, secret_access_key)
+  aa = turk!({"Operation" => "ApproveAssignment", "AssignmentId" => assignment_id}.merge(feedback.nil? ? {} : {"RequesterFeedback" => feedback}), endpoint, access_key, secret_access_key)
+  x = valid_xml!(aa)
+  true
+end
+
+def reject!(assignment_id, feedback, endpoint, access_key, secret_access_key)
+  ra = turk!({"Operation" => "RejectAssignment", "AssignmentId" => assignment_id, "RequesterFeedback" => feedback}, endpoint, access_key, secret_access_key)
+  x = valid_xml!(ra)
+end
+
 def block!(worker_id, reason, endpoint, access_key, secret_access_key)
   bw = turk!({"Operation" => "BlockWorker", "WorkerId" => worker_id, "Reason" => reason}, endpoint, access_key, secret_access_key)
   x = valid_xml!(bw)
