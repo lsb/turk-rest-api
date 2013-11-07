@@ -261,6 +261,7 @@ end
 def make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
   slug = [instructions, distinctUsers.to_s, addMinutes.to_s, (cost.nil? ? 0 : cost).to_s].map(&:sha256).join
   knownAnswerSlug = knownAnswerQuestions.nil? ? "" : [knownAnswerQuestions.fetch("percentCorrect").to_s.sha256,
+                                                      knownAnswerQuestions['rejectOnFail'] ? "rejectOnFail" : "",
                                                       knownAnswerQuestions.fetch("answeredQuestions").map {|aq|
                                                         m = aq.fetch("match")
                                                         k = m.has_key?("Exact") ? "Exact" : "Inexact"
@@ -302,7 +303,6 @@ def make_hit(instructions, questions, distinctUsers, addMinutes, cost, knownAnsw
     "AssignmentDurationInSeconds" => duration,
     "LifetimeInSeconds" => (3600 * 24),
     "MaxAssignments" => distinctUsers,
-    "AutoApprovalDelayInSeconds" => 0
   }.merge(JSON.parse(overrideParameters)) #,  TODO FIX NOT USING UNIQUEASKID
     #"UniqueRequestToken" => (gs.keys+qs.keys).map(&:sha256).join.sha256 }
 end

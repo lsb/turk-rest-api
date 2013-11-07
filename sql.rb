@@ -115,9 +115,10 @@ def consume_assignments!(db, queue_endpoint, queue_access, queue_secret, turk_en
     correct_incorrect_counts = db.execute(SelectCorrectIncorrectCounts, "hit_id" => hit_id)[0]
     correct_count = correct_incorrect_counts.fetch("correct")
     incorrect_count = correct_incorrect_counts.fetch("incorrect")
-    extend_hit!(hit_id, 1, turk_endpoint, turk_access, turk_secret) if !a["valid?"] && incorrect_count < distinctUsers
-    (dispose_hit!(hit_id, turk_endpoint, turk_access, turk_secret) if correct_count == distinctUsers || incorrect_count > distinctUsers) rescue nil
-    db.execute(InsertDisposedHit, "hit_id" => hit_id)
+    extend_hit!(hit_id, 1, turk_endpoint, turk_access, turk_secret) if !a["valid?"] && incorrect_count <= distinctUsers
+    rejection_notice = "Hello, thank you for your work, but of the questions in the HIT that we knew the answers to, you got #{a.fetch("gold_standards_percent_correct")}% correct when we were looking for #{knownAnswerQuestions.fetch("percentCorrect")}% correct."
+    (a.fetch("valid?") || !knownAnswerQuestions['rejectOnFail']) ? approve!(assignment_id, nil, turk_endpoint, turk_access, turk_secret) : reject!(assignment_id, rejection_notice, turk_endpoint, turk_access, turk_secret)
+    db.execute(InsertDisposedHit, "hit_id" => hit_id) if correct_count == distinctUsers || incorrect_count > distinctUsers
   }
   discard_assignment_notifications!(notifications, queue_endpoint, queue_access, queue_secret)
 end
