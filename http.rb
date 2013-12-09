@@ -39,7 +39,7 @@ def validate!(ps)
   ps['knownAnswerQuestions'] = knownAnswerQuestions = raw_knownAnswerQuestions.nil? ? nil : (JSON.parse(raw_knownAnswerQuestions) rescue halt(400, "unparseable JSON"))
   (1..25).include?(distinctUsers) || halt(400, "distinctUsers must be between 1 and 40")
   (0..99).include?(addMinutes) || halt(400, "addMinutes must be between 0 and 99")
-  (cost.nil? || (1..99).include?(cost)) || halt(400, "cost must be between 1 and 99")
+  (cost.nil? || (0..100).include?(cost)) || halt(400, "cost must be between 1 and 99")
   valid_question_type?(question) || halt(400, "invalid question")
   if !knownAnswerQuestions.nil?
     knownAnswerQuestions.has_key?('percentCorrect') || halt(400, "bad knownAnswerQuestions data type")
