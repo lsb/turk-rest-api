@@ -16,15 +16,26 @@ SelectAnswers = "select answer, worker_id, is_valid, d.hit_id from asks join ans
 SelectBatchOfOldestUnshippedAsk = "select is_valid, instructions, questions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters from oldest_batch"
 
 InsertShippedAsk = "insert into shipped_asks (hit_id, ask_id) values (:hit_id, (select id from asks a left join shipped_asks sa on a.id = sa.ask_id where sa.ask_id is null and question_id = :question_id order by a.created_at limit 1))"
+InsertLiteralShippedAsk = 'insert into shipped_asks (hit_id, ask_id) values (:hit_id, :ask_id)'
 
 SelectHitParameters = "select question, question_id, question_type_id, distinctUsers, knownAnswerQuestions, overrideParameters from question_types qt, questions q, asks a, shipped_asks sa where qt.id = q.question_type_id and q.id = a.question_id and a.id = sa.ask_id and sa.hit_id = :hit_id"
 InsertAssignment = "insert or ignore into assignments (id, hit_id, worker_id, assignment, is_valid) values (:id, :hit_id, :worker_id, :assignment, :is_valid)"
 InsertAnswer = "insert or ignore into answers (assignment_id, ask_id, answer) values (:assignment_id, (select ask_id from asks a join shipped_asks sa on sa.ask_id = a.id join assignments m using (hit_id) where question_id = :question_id and m.id = :assignment_id), :answer)"
+InsertLiteralAnswer = 'insert or ignore into answers (assignment_id, ask_id, answer) values (:assignment_id, :ask_id, :answer)'
 InsertDisposedHit = "insert or ignore into disposed_hits (hit_id) values (:hit_id)"
 SelectCorrectIncorrectCounts = "select sum(is_valid) as correct, sum(1-is_valid) as incorrect from assignments where hit_id = :hit_id"
 
 def make_id_ask(qid, uniqueAskId)
   (qid + uniqueAskId.sha256).sha256
+end
+
+def tell!(instructions, question, distinctUsers, addMinutes, cost, knownAnswerQuestions, uniqueAskId, overrideParameters, injWorker, injAnswer, injBatch, db)
+  qtid = make_id_question_type(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters)
+  qid = make_id_questions(qtid, [question]).keys.first
+  aid = make_id_ask(qid, uniqueAskId)
+  faux_id = make_id_ask(aid, injWorker.sha256 + injAnswer.sha256)
+  db.execute(InsertAssignment, 'id' => faux_id, 'hit_id' => injBatch, 'worker_id' => injWorker, 'assignment' => 'slug.', 'is_valid' => 1)
+  db.execute(InsertLiteralAnswer, 'assignment_id' => faux_id, 'ask_id' => aid, 'answer' => injAnswer)
 end
 
 def put_question_type!(instructions, distinctUsers, addMinutes, cost, knownAnswerQuestions, overrideParameters, db)

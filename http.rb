@@ -58,6 +58,12 @@ put('/ask') {
   ""
 }
 
+put('/tell') {
+  validate!(params)
+  tell!(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], params['overrideParameters'], params['injectedWorker'].to_s, params['injectedAnswer'], params['injectionBatch'].to_s, DB) if params['injectedAnswer']
+  ""
+}
+
 get('/ask') {
   validate!(params)
   no_more, answers = *get_answers(params['instructions'], params['question'], params['distinctUsers'], params['addMinutes'], params['cost'], params['knownAnswerQuestions'], params['uniqueAskId'], params['overrideParameters'], DB)
