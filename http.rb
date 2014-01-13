@@ -35,8 +35,8 @@ def validate!(ps)
   ps['uniqueAskId'] = uniqueAskId = ps['uniqueAskId'] || ''
 
   !instructions.nil? || halt(400, "need instructions")
-  ps['question'] = question = JSON.parse(raw_question) rescue halt(400, "unparseable JSON")
-  ps['knownAnswerQuestions'] = knownAnswerQuestions = raw_knownAnswerQuestions.nil? ? nil : (JSON.parse(raw_knownAnswerQuestions) rescue halt(400, "unparseable JSON"))
+  ps['question'] = question = JSON.parse(raw_question) rescue halt(400, "unparseable question JSON")
+  ps['knownAnswerQuestions'] = knownAnswerQuestions = raw_knownAnswerQuestions.nil? ? nil : (JSON.parse(raw_knownAnswerQuestions) rescue halt(400, "unparseable knownAnswer JSON"))
   (1..25).include?(distinctUsers) || halt(400, "distinctUsers must be between 1 and 40")
   (0..99).include?(addMinutes) || halt(400, "addMinutes must be between 0 and 99")
   (cost.nil? || (0..100).include?(cost)) || halt(400, "cost must be between 1 and 99")

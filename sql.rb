@@ -121,7 +121,7 @@ def consume_assignments!(db, queue_endpoint, queue_access, queue_secret, turk_en
     a = assignment!(assignment_id, knownAnswerQuestions, turk_endpoint, turk_access, turk_secret)
     db.execute(InsertAssignment, "id" => a.fetch("id"), "hit_id" => hit_id, "worker_id" => a.fetch("worker_id"), "assignment" => JSON.dump(a.fetch("assignment")), "is_valid" => a.fetch("valid?") ? 1 : 0)
     a.fetch("assignment").each {|question_id, answer|
-      db.execute(InsertAnswer, "assignment_id" => a.fetch("id"), "question_id" => question_id, "answer" => answer.to_json)
+      db.execute(InsertAnswer, "assignment_id" => a.fetch("id"), "question_id" => question_id, "answer" => answer)
     }
     correct_incorrect_counts = db.execute(SelectCorrectIncorrectCounts, "hit_id" => hit_id)[0]
     correct_count = correct_incorrect_counts.fetch("correct")
