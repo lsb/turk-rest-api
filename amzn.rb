@@ -59,7 +59,7 @@ def block!(worker_id, reason, endpoint, access_key, secret_access_key)
 end
 
 def bonus!(worker_id, assignment_id, amt, reason, endpoint, access_key, secret_access_key)
-  gb = turk!({"Operation" => "GrantBonus", "WorkerId" => worker_id, "AssignmentId" => assignment_id, "BonusAmount.1.Amount" => amt.round(2), "BonusAmount.1.CurrencyCode" => "USD", "Reason" => reason})
+  gb = turk!({"Operation" => "GrantBonus", "WorkerId" => worker_id, "AssignmentId" => assignment_id, "BonusAmount.1.Amount" => amt.round(2), "BonusAmount.1.CurrencyCode" => "USD", "Reason" => reason}, endpoint, access_key, secret_access_key)
   x = valid_xml!(gb)
   true
 end
