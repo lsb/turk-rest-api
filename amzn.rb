@@ -64,6 +64,14 @@ def bonus!(worker_id, assignment_id, amt, reason, endpoint, access_key, secret_a
   true
 end
 
+def has_hit_expired!(hit_id, endpoint, access_key, secret_access_key)
+  h = turk!({"Operation" => "GetHIT", "HITId" => hit_id}, endpoint, access_key, secret_access_key)
+  p h
+  x = REXML::Document.new(h)
+  valid_response?(x) && Time.now.to_i - DateTime.parse(x.elements['/GetHITResponse/HIT/Expiration/text()'].to_s).to_time.to_i > x.elements['/GetHITResponse/HIT/AssignmentDurationInSeconds/text()'].to_s.to_i
+  # not only has the hit expired, but no one has submitted any assignments after the hit has expired
+end
+
 def subscribe_hit_type_assignments_to_queue!(hit_type_id, queue, endpoint, access_key, secret_access_key)
   s = turk!({"Operation" => "SetHITTypeNotification", "HITTypeId" => hit_type_id, "Notification.1.Transport" => "SQS", "Notification.1.Version" => "2006-05-05", "Notification.1.Destination" => queue, "Notification.1.EventType" => "AssignmentSubmitted"}, endpoint, access_key, secret_access_key)
   x = valid_xml!(s)

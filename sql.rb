@@ -22,6 +22,7 @@ SelectHitParameters = "select question, question_id, question_type_id, distinctU
 InsertAssignment = "insert or ignore into assignments (id, hit_id, worker_id, assignment, is_valid) values (:id, :hit_id, :worker_id, :assignment, :is_valid)"
 InsertAnswer = "insert or ignore into answers (assignment_id, ask_id, answer) values (:assignment_id, (select ask_id from asks a join shipped_asks sa on sa.ask_id = a.id join assignments m using (hit_id) where question_id = :question_id and m.id = :assignment_id), :answer)"
 InsertLiteralAnswer = 'insert or ignore into answers (assignment_id, ask_id, answer) values (:assignment_id, :ask_id, :answer)'
+SelectIndisposedHits = "select distinct s.hit_id from shipped_asks s left join disposed_hits d on s.hit_id = d.hit_id where d.hit_id is null"
 InsertDisposedHit = "insert or ignore into disposed_hits (hit_id) values (:hit_id)"
 SelectCorrectIncorrectCounts = "select sum(is_valid) as correct, sum(1-is_valid) as incorrect from assignments where hit_id = :hit_id"
 
@@ -133,3 +134,13 @@ def consume_assignments!(db, queue_endpoint, queue_access, queue_secret, turk_en
   }
   discard_assignment_notifications!(notifications, queue_endpoint, queue_access, queue_secret)
 end
+
+def dispose_hits!(db, endpoint, access_key, secret_access_key)
+  indisposed_hits = db.execute(SelectIndisposedHits).map {|row| row['hit_id'] }
+  indisposed_hits.each {|h|
+    p h
+    db.execute(InsertDisposedHit, "hit_id" => h) if has_hit_expired!(h, endpoint, access_key, secret_access_key)
+  }
+  nil
+end
+

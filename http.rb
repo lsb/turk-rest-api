@@ -73,4 +73,5 @@ get('/ask') {
 
 post('/o') { ship_oldest_batch!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access], TurkQueue[:live_endpoint]); "" }
 post('/i') { consume_assignments!(DB, TurkQueue[:live_endpoint], TurkQueue[:access], TurkQueue[:secret_access], Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
+post('/d') { dispose_hits!(DB, Turk[:live_endpoint], Turk[:access], Turk[:secret_access]); "" }
 get('/') { redirect "http://www.leebutterman.com/ask-human/" }
